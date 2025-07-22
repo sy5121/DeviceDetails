@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Device & Network Info</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin: 0; padding: 20px;
+    }
+    h1, p { text-align: center; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-top: 20px; }
+    .card {
+        background: rgba(255,255,255,0.9);
+        color: #333;
+        padding: 20px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .info-row { display: flex; justify-content: space-between; margin: 5px 0; }
+    .value { font-family: monospace; }
+    .controls { text-align: center; margin-top: 20px; }
+    button {
+        margin: 5px; padding: 10px 15px;
+        background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;
+    }
+    .dark { background: #121212; color: #eee; }
+    .dark .card { background: rgba(30,30,30,0.9); color: #eee; }
+</style>
+</head>
+<body>
+<h1>🖥️ Device & Network Info</h1>
+<p>View and copy your device and IP details</p>
+
+<div class="grid" id="infoGrid">Loading...</div>
+
+<div class="controls">
+    <button onclick="copyAll()">📋 Copy All</button>
+    <button onclick="downloadAll()">⬇️ Download</button>
+    <button onclick="toggleDark()">🌓 Dark Mode</button>
+    <button onclick="refresh()">🔄 Refresh</button>
+</div>
+
+<script>
+let report = "";
+
+async function getIP() {
+    const res = await fetch('https://ipapi.co/json/');
+    return await res.json();
+}
+
+function getDeviceInfo() {
+    const n = navigator;
+    const conn = n.connection || {};
+    return {
+        "Platform": n.platform,
+        "Browser": getBrowser(),
+        "User Agent": n.userAgent,
+        "Language": n.language,
+        "Online": n.onLine ? "Yes" : "No",
+        "Cookies Enabled": n.cookieEnabled ? "Yes" : "No",
+        "Cores": n.hardwareConcurrency || "Unknown",
+        "Memory (GB)": n.deviceMemory || "Unknown",
+        "Touch Support": ('ontouchstart' in window || n.maxTouchPoints > 0) ? "Yes" : "No",
+        "Screen": `${screen.width}x${screen.height}`,
+        "Color Depth": `${screen.colorDepth}`,
+        "Timezone": Intl.DateTimeFormat().resolvedOptions().timeZone,
+        "Time": new Date().toLocaleString(),
+        "Conn Type": conn.type || "Unknown",
+        "Effective Type": conn.effectiveType || "Unknown",
+        "Downlink": conn.downlink || "Unknown",
+        "RTT": conn.rtt || "Unknown"
+    };
+}
+
+function getBrowser() {
+    const ua = navigator.userAgent;
+    if (ua.includes("Chrome") && !ua.includes("Edg")) return "Chrome";
+    if (ua.includes("Firefox")) return "Firefox";
+    if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+    if (ua.includes("Edg")) return "Edge";
+    if (ua.includes("OPR") || ua.includes("Opera")) return "Opera";
+    return "Unknown";
+}
+
+function makeCard(title, data) {
+    let card = `<div class="card"><h3>${title}</h3>`;
+    for (const [k, v] of Object.entries(data)) {
+        card += `<div class="info-row"><span>${k}</span><span class="value">${v}</span></div>`;
+        report += `${k}: ${v}\n`;
+    }
+    card += `<button onclick="copySection(\`${Object.entries(data).map(([k,v])=>`${k}: ${v}`).join("\\n")}\`)">Copy</button></div>`;
+    return card;
+}
+
+function copySection(text) {
+    navigator.clipboard.writeText(text).then(() => alert("Copied!"));
+}
+
+function copyAll() {
+    navigator.clipboard.writeText(report).then(() => alert("All data copied!"));
+}
+
+function downloadAll() {
+    const blob = new Blob([report], {type: "text/plain"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "device_info.txt"; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function toggleDark() {
+    document.body.classList.toggle("dark");
+}
+
+async function refresh() {
+    document.getElementById("infoGrid").innerHTML = "Loading...";
+    report = "";
+    const ip = await getIP();
+    const dev = getDeviceInfo();
+    let html = "";
+    html += makeCard("🌐 Network", {
+        "IP": ip.ip,
+        "City": ip.city,
+        "Region": ip.region,
+        "Country": ip.country_name,
+        "ISP": ip.org
+    });
+    html += makeCard("📱 Device", dev);
+    document.getElementById("infoGrid").innerHTML = html;
+}
+
+refresh();
+</script>
+</body>
+</html>
